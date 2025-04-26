@@ -5,6 +5,9 @@ const passport = require('passport');
 const path = require('path');
 const cors = require("cors");
 const nodemailer = require('nodemailer');
+const swaggerUi = require('swagger-ui-express');
+const YAML = require('yamljs');
+const swaggerDocument = YAML.load('./swagger/swagger.yaml');
 require('dotenv').config();
 
 const customers = require('./routes/customersRoutes');
@@ -45,6 +48,8 @@ const transporter = nodemailer.createTransport({
     pass: process.env.NODEMAILER_PASSWORD,
   },
 });
+
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
 // Use Routes
 app.use('/api/customers', customers);

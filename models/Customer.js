@@ -11,11 +11,11 @@ const CustomerSchema = new Schema(
     },
     firstName: {
       type: String,
-      required: true
+      required: false
     },
     login: {
       type: String,
-      required: true
+      required: false
     },
     email: {
       type: String,
