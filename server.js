@@ -5,9 +5,8 @@ const passport = require('passport');
 const path = require('path');
 const cors = require("cors");
 const nodemailer = require('nodemailer');
-const swaggerUi = require('swagger-ui-express');
-const YAML = require('yamljs');
-const swaggerDocument = YAML.load('./swagger/swagger.yaml');
+const { swaggerDocument, swaggerUi } = require('./swagger');
+
 require('dotenv').config();
 
 const customers = require('./routes/customersRoutes');
@@ -24,6 +23,7 @@ const corsOptions = {
 
 app.use(cors());
 
+const __swaggerDistPath = path.join(__dirname, "node_modules", "swagger-ui-dist");
 // Body parser middleware
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
@@ -49,7 +49,16 @@ const transporter = nodemailer.createTransport({
   },
 });
 
-app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
+app.use(
+  "/api-docs",
+  express.static(__swaggerDistPath, { index: false }),
+  swaggerUi.serve,
+  swaggerUi.setup(swaggerDocument, {
+    explorer: true, 
+    customCssUrl: "/api-docs/swagger-ui.css", 
+    customJs: "/api-docs/swagger-ui-bundle.js", 
+  })
+);
 
 // Use Routes
 app.use('/api/customers', customers);
@@ -72,4 +81,3 @@ if (process.env.NODE_ENV === 'production') {
 const port = process.env.PORT || 4000;
 
 app.listen(port, () => console.log(`Server running on port ${port}`));
-

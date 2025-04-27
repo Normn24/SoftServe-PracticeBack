@@ -120,6 +120,7 @@ exports.addSession = (req, res) => {
 exports.editSession = (req, res) => {
   const movieId = req.params.id;
   const sessionId = req.params.sessionId;
+  const { dateTime, price, seats: updatedSeats } = req.body;
 
   MovieInCinema.findOne({ movieId: movieId })
     .then(movie => {
@@ -136,8 +137,27 @@ exports.editSession = (req, res) => {
         });
       }
 
-      session.dateTime = req.body.dateTime || session.dateTime;
-      session.price = req.body.price || session.price;
+      if (dateTime) session.dateTime = dateTime;
+      if (price) session.price = price;
+
+      if (updatedSeats) {
+        const currentSeats = session.seats || [];
+
+        const updatedSeatsMap = new Map(updatedSeats.map(seat => [seat.seatNumber, seat]));
+
+        session.seats = currentSeats.filter(seat => {
+          return seat.isBooked || updatedSeatsMap.has(seat.seatNumber);
+        });
+
+        updatedSeats.forEach(newSeat => {
+          const exists = session.seats.some(seat => seat.seatNumber === newSeat.seatNumber);
+          if (!exists) {
+            session.seats.push(newSeat);
+          }
+        });
+
+        session.seats.sort((a, b) => a.seatNumber - b.seatNumber);
+      }
 
       return movie.save();
     })
@@ -151,6 +171,7 @@ exports.editSession = (req, res) => {
       })
     );
 };
+
 
 exports.deleteSession = (req, res) => {
   const movieId = req.params.id;

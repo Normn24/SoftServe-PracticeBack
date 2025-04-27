@@ -62,7 +62,6 @@ router.post(
 
 router.get(
   "/:id/sessions/:sessionId/seats",
-  passport.authenticate("jwt", { session: false }),
   getAvailableSeats
 );
 
