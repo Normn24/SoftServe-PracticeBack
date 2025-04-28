@@ -52,13 +52,14 @@ exports.deleteMovie = (req, res) => {
 
 exports.getMovieById = async (req, res) => {
   const movieId = req.params.id; 
+  const queryParams = req.query;
 
   if (!movieId) {
     return res.status(400).json({ message: 'Please provide the movieId.' });
   }
 
   try {
-    const movieDetails = await tmdbService.getMovieDetails(movieId);
+    const movieDetails = await tmdbService.getMovieDetails(movieId, queryParams);
     if (movieDetails) {
       res.json(movieDetails);
     } else {
@@ -70,17 +71,40 @@ exports.getMovieById = async (req, res) => {
   }
 };
 
-exports.getAllMovies = (req, res) => {
-  MovieInCinema.find()
-    .then(movies => {
-      res.json(movies);
-    })
-    .catch(err => {
-      res.status(500).json({
-        message: `Error happened on server while fetching movies: "${err.message || err}"`
+exports.getAllMovies = async (req, res) => {
+  const queryParams = req.query;
+
+  try {
+    const moviesInCinema = await MovieInCinema.find();
+
+    if (!moviesInCinema.length) {
+      return res.status(404).json({ message: "No movies found in cinema." });
+    }
+
+    const movieRequests = moviesInCinema.map(movie => 
+      tmdbService.getMovieDetails(movie.movieId, queryParams)
+    );
+
+    const moviesFromTmdb = await Promise.all(movieRequests)
+      .then(results => results.filter(movie => movie)) 
+      .catch(error => {
+        console.error("Error retrieving movie details from TMDB:", error);
+        throw new Error('Error when getting details from TMDB.');
       });
+
+    const mergedMovies = moviesInCinema.map((movie, index) => ({
+      ...movie.toObject(),           
+      tmdbDetails: moviesFromTmdb[index] 
+    }));
+
+    res.status(200).json(mergedMovies);
+  } catch (err) {
+    res.status(500).json({
+      message: `Error happened on server while fetching movies: "${err.message || err}"`,
     });
+  }
 };
+
 
 exports.addSession = (req, res) => {
   const movieId = req.params.id;
@@ -229,38 +253,52 @@ exports.getSessionById = (req, res) => {
 };
 
 exports.getAllSessions = (req, res) => {
-  const dateQuery = req.query.date; 
-
-  const targetDate = new Date(dateQuery);
-  const nextDay = new Date(targetDate);
-  nextDay.setDate(nextDay.getDate() + 1);
-
-  MovieInCinema.find()
-    .select('tmdbId sessions')
-    .exec()
-    .then(movies => {
-      const sessionsForDate = movies.flatMap(movie =>
-        movie.sessions
-          .filter(session =>
-            new Date(session.dateTime) >= targetDate &&
-            new Date(session.dateTime) < nextDay
-          )
-          .map(session => ({
-            tmdbId: movie.tmdbId,
-            session
-          }))
-      );
-
-      res.json(sessionsForDate);
-    })
-    .catch(err =>
-      res.status(500).json({
-        message: `Error happened on server: "${err}"`
-      })
-    );
+    const movieId = req.params.id; 
+    const dateQuery = req.query.date; 
+  
+    if (!dateQuery) {
+        return res.status(400).json({ message: "Missing 'date' query parameter." });
+    }
+  
+    const targetDate = new Date(dateQuery);
+    if (isNaN(targetDate.getTime())) {
+         return res.status(400).json({ message: "Invalid 'date' query parameter. Please use YYYY-MM-DD format." });
+    }
+  
+    targetDate.setHours(0, 0, 0, 0);
+  
+    const nextDay = new Date(targetDate);
+    nextDay.setDate(nextDay.getDate() + 1);
+  
+    MovieInCinema.findOne({ movieId: movieId })
+        .select('sessions')
+        .exec()
+        .then(movie => {
+            if (!movie) {
+                return res.status(404).json({
+                    message: `Movie with id "${movieId}" not found.`
+                });
+            }
+  
+            const sessionsForDate = movie.sessions
+                .filter(session => {
+                    const sessionDate = new Date(session.dateTime);
+                    return sessionDate >= targetDate && sessionDate < nextDay;
+                })
+                .map(session => ({
+                    tmdbId: movie.tmdbId,
+                    session: session.toObject() 
+                }));
+  
+            res.json(sessionsForDate); 
+        })
+        .catch(err => {
+            console.error(`Error fetching sessions for movie ${movieId} on date ${dateQuery}:`, err); // Add specific logging
+            res.status(500).json({
+                message: `Error happened on server while fetching sessions: "${err.message || err}"`
+            });
+        });
 };
-
-
 
 exports.bookSeat = async (req, res) => {
   const movieId = req.params.id;

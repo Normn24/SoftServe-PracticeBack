@@ -46,9 +46,9 @@ module.exports = {
     }
   },
 
-  getMovieDetails: async (id) => {
+  getMovieDetails: async (id, params = {}) => {
     try {
-      const response = await tmdb.get(`/movie/${id}`);
+      const response = await tmdb.get(`/movie/${id}`, { params });
       return response.data;
     } catch (error) {
       console.error(`Error fetching details for movie ID ${id} from TMDB:`, error.message);

@@ -178,6 +178,54 @@ const swaggerDocument = {
         },
       },
     },
+    "/movies-in-cinema/{movieId}": {
+      get: {
+        tags: ["MoviesInCinema"],
+        summary: "Отримати фільм у прокаті за ID",
+        parameters: [
+          {
+            name: "movieId",
+            in: "path",
+            required: true,
+            schema: { type: "string" }
+          }
+        ],
+        responses: {
+          "200": {
+            description: "Дані фільму в прокаті",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/MovieInCinema" }
+              }
+            }
+          },
+          "404": {
+            description: "Фільм не знайдено"
+          }
+        }
+      },
+      delete: {
+        tags: ["MoviesInCinema"],
+        summary: "Видалити фільм з прокату (лише Admin)",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "movieId",
+            in: "path",
+            required: true,
+            schema: { type: "string" }
+          }
+        ],
+        responses: {
+          "200": {
+            description: "Фільм видалено з прокату"
+          },
+          "404": {
+            description: "Фільм не знайдено"
+          }
+        }
+      }
+    },
     "/movies-in-cinema/{movieId}/sessions": {
       post: {
         tags: ["MoviesInCinema"],
@@ -190,7 +238,7 @@ const swaggerDocument = {
           required: true,
           content: {
             "application/json": {
-              schema: { $ref: "#/components/schemas/Session" },
+              schema: { $ref: "#/components/schemas/SessionAdd" },
             },
           },
         },
@@ -225,6 +273,24 @@ const swaggerDocument = {
       },
     },
     "/movies-in-cinema/{movieId}/sessions/{sessionId}": {
+      get: {
+        tags: ["MoviesInCinema"],
+        summary: "Отримати сеанс за ID",
+        parameters: [
+          { name: "movieId", in: "path", required: true, schema: { type: "string" } },
+          { name: "sessionId", in: "path", required: true, schema: { type: "string" } }
+        ],
+        responses: {
+          "200": {
+            description: "Деталі сеансу",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/Session" }
+              }
+            }
+          }
+        }
+      },
       put: {
         tags: ["MoviesInCinema"],
         summary: "Редагувати сеанс (лише Admin)",
@@ -365,10 +431,6 @@ const swaggerDocument = {
         required: ["movieId"],
         properties: {
           movieId: { type: "integer", example: 550 },
-          sessions: {
-            type: "array",
-            items: { $ref: "#/components/schemas/Session" },
-          },
         },
       },
       Session: {  
@@ -387,6 +449,25 @@ const swaggerDocument = {
           seats: {
             type: "array",
             items: { $ref: "#/components/schemas/Seat" }
+          },
+        },
+      },
+      SessionAdd: {  
+        type: "object",
+        properties: {
+          dateTime: {
+            type: "string",
+            format: "date-time",
+            example: "2025-04-27T18:30:00Z"
+          },
+          price: { 
+            type: "number",
+            format: "float",
+            example: 150.00
+          },
+          seats: {
+            type: "array",
+            items: {type: "number", example: 5 }
           },
         },
       },
