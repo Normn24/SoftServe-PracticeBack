@@ -17,7 +17,7 @@ const ticketRoutes = require('./routes/ticketRoutes');
 
 const app = express();
 const corsOptions = {
-  // origin: "http://localhost:5173",
+  origin: "http://localhost:5173",
 //   origin: "https://664df23ea1bb9d00088b4025--transcendent-tartufo-db32bd.netlify.app/",
 };
 

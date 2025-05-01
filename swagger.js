@@ -1,4 +1,4 @@
-const swaggerUi = require('swagger-ui-express');
+const swaggerUi = require("swagger-ui-express");
 
 const swaggerDocument = {
   openapi: "3.0.0",
@@ -33,7 +33,7 @@ const swaggerDocument = {
           },
         },
         responses: {
-          '201': { description: "Користувача створено" },
+          201: { description: "Користувача створено" },
         },
       },
       put: {
@@ -49,7 +49,7 @@ const swaggerDocument = {
           },
         },
         responses: {
-          '200': { description: "Оновлено" },
+          200: { description: "Оновлено" },
         },
       },
     },
@@ -66,7 +66,30 @@ const swaggerDocument = {
           },
         },
         responses: {
-          '200': { description: "Успішний логін" },
+          200: { description: "Успішний логін" },
+        },
+      },
+    },
+    "/customers/password": {
+      put: {
+        tags: ["Customers"],
+        summary: "Оновити пароль користувача",
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/UpdatePassword" },
+            },
+          },
+        },
+        responses: {
+          200: {
+            description: "Пароль успішно оновлено",
+          },
+          400: {
+            description: "Помилка: старий пароль неправильний або невірні дані",
+          },
         },
       },
     },
@@ -76,7 +99,7 @@ const swaggerDocument = {
         summary: "Отримати поточного користувача",
         security: [{ bearerAuth: [] }],
         responses: {
-          '200': { description: "Дані користувача" },
+          200: { description: "Дані користувача" },
         },
       },
     },
@@ -85,7 +108,7 @@ const swaggerDocument = {
         tags: ["Movies"],
         summary: "Отримати всі фільми",
         responses: {
-          '200': { description: "Список фільмів" },
+          200: { description: "Список фільмів" },
         },
       },
     },
@@ -94,10 +117,15 @@ const swaggerDocument = {
         tags: ["Movies"],
         summary: "Отримати фільм за ID",
         parameters: [
-          { name: "movieId", in: "path", required: true, schema: { type: "string" } },
+          {
+            name: "movieId",
+            in: "path",
+            required: true,
+            schema: { type: "string" },
+          },
         ],
         responses: {
-          '200': { description: "Дані фільму" },
+          200: { description: "Дані фільму" },
         },
       },
     },
@@ -106,7 +134,7 @@ const swaggerDocument = {
         tags: ["Movies"],
         summary: "Отримати жанри фільмів",
         responses: {
-          '200': { description: "Жанри" },
+          200: { description: "Жанри" },
         },
       },
     },
@@ -115,7 +143,7 @@ const swaggerDocument = {
         tags: ["Movies"],
         summary: "Отримати популярні фільми",
         responses: {
-          '200': { description: "Популярні фільми" },
+          200: { description: "Популярні фільми" },
         },
       },
     },
@@ -125,7 +153,7 @@ const swaggerDocument = {
         summary: "Отримати улюблені фільми користувача",
         security: [{ bearerAuth: [] }],
         responses: {
-          '200': { description: "Список улюблених фільмів" },
+          200: { description: "Список улюблених фільмів" },
         },
       },
     },
@@ -135,10 +163,15 @@ const swaggerDocument = {
         summary: "Додати фільм до улюблених",
         security: [{ bearerAuth: [] }],
         parameters: [
-          { name: "movieId", in: "path", required: true, schema: { type: "string" } },
+          {
+            name: "movieId",
+            in: "path",
+            required: true,
+            schema: { type: "string" },
+          },
         ],
         responses: {
-          '200': { description: "Додано до улюблених" },
+          200: { description: "Додано до улюблених" },
         },
       },
       delete: {
@@ -146,10 +179,15 @@ const swaggerDocument = {
         summary: "Видалити фільм з улюблених",
         security: [{ bearerAuth: [] }],
         parameters: [
-          { name: "id", in: "path", required: true, schema: { type: "string" } },
+          {
+            name: "id",
+            in: "path",
+            required: true,
+            schema: { type: "string" },
+          },
         ],
         responses: {
-          '200': { description: "Видалено" },
+          200: { description: "Видалено" },
         },
       },
     },
@@ -158,7 +196,7 @@ const swaggerDocument = {
         tags: ["MoviesInCinema"],
         summary: "Перегляд усіх фільмів в прокаті",
         responses: {
-          '200': { description: "Список фільмів в прокаті" },
+          200: { description: "Список фільмів в прокаті" },
         },
       },
       post: {
@@ -174,7 +212,7 @@ const swaggerDocument = {
           },
         },
         responses: {
-          '201': { description: "Додано фільм" },
+          201: { description: "Додано фільм" },
         },
       },
     },
@@ -187,22 +225,33 @@ const swaggerDocument = {
             name: "movieId",
             in: "path",
             required: true,
-            schema: { type: "string" }
-          }
+            schema: { type: "string" },
+          },
+          {
+            name: "language",
+            in: "query",
+            required: false,
+            schema: {
+              type: "string",
+              default: "en-US",
+              example: "uk-UA",
+              description: "Мова результату (наприклад: uk-UA )",
+            },
+          },
         ],
         responses: {
-          "200": {
+          200: {
             description: "Дані фільму в прокаті",
             content: {
               "application/json": {
-                schema: { $ref: "#/components/schemas/MovieInCinema" }
-              }
-            }
+                schema: { $ref: "#/components/schemas/MovieInCinema" },
+              },
+            },
           },
-          "404": {
-            description: "Фільм не знайдено"
-          }
-        }
+          404: {
+            description: "Фільм не знайдено",
+          },
+        },
       },
       delete: {
         tags: ["MoviesInCinema"],
@@ -213,18 +262,18 @@ const swaggerDocument = {
             name: "movieId",
             in: "path",
             required: true,
-            schema: { type: "string" }
-          }
+            schema: { type: "string" },
+          },
         ],
         responses: {
-          "200": {
-            description: "Фільм видалено з прокату"
+          200: {
+            description: "Фільм видалено з прокату",
           },
-          "404": {
-            description: "Фільм не знайдено"
-          }
-        }
-      }
+          404: {
+            description: "Фільм не знайдено",
+          },
+        },
+      },
     },
     "/movies-in-cinema/{movieId}/sessions": {
       post: {
@@ -232,7 +281,12 @@ const swaggerDocument = {
         summary: "Додати сеанс (лише Admin)",
         security: [{ bearerAuth: [] }],
         parameters: [
-          { name: "movieId", in: "path", required: true, schema: { type: "string" } },
+          {
+            name: "movieId",
+            in: "path",
+            required: true,
+            schema: { type: "string" },
+          },
         ],
         requestBody: {
           required: true,
@@ -243,7 +297,7 @@ const swaggerDocument = {
           },
         },
         responses: {
-          '201': { description: "Додано сеанс" },
+          201: { description: "Додано сеанс" },
         },
       },
       get: {
@@ -266,7 +320,7 @@ const swaggerDocument = {
           },
         ],
         responses: {
-          '200': {
+          200: {
             description: "Список сеансів за обраною датою",
           },
         },
@@ -277,27 +331,47 @@ const swaggerDocument = {
         tags: ["MoviesInCinema"],
         summary: "Отримати сеанс за ID",
         parameters: [
-          { name: "movieId", in: "path", required: true, schema: { type: "string" } },
-          { name: "sessionId", in: "path", required: true, schema: { type: "string" } }
+          {
+            name: "movieId",
+            in: "path",
+            required: true,
+            schema: { type: "string" },
+          },
+          {
+            name: "sessionId",
+            in: "path",
+            required: true,
+            schema: { type: "string" },
+          },
         ],
         responses: {
-          "200": {
+          200: {
             description: "Деталі сеансу",
             content: {
               "application/json": {
-                schema: { $ref: "#/components/schemas/Session" }
-              }
-            }
-          }
-        }
+                schema: { $ref: "#/components/schemas/Session" },
+              },
+            },
+          },
+        },
       },
       put: {
         tags: ["MoviesInCinema"],
         summary: "Редагувати сеанс (лише Admin)",
         security: [{ bearerAuth: [] }],
         parameters: [
-          { name: "movieId", in: "path", required: true, schema: { type: "string" } },
-          { name: "sessionId", in: "path", required: true, schema: { type: "string" } },
+          {
+            name: "movieId",
+            in: "path",
+            required: true,
+            schema: { type: "string" },
+          },
+          {
+            name: "sessionId",
+            in: "path",
+            required: true,
+            schema: { type: "string" },
+          },
         ],
         requestBody: {
           required: true,
@@ -308,7 +382,7 @@ const swaggerDocument = {
           },
         },
         responses: {
-          '200': { description: "Сеанс оновлено" },
+          200: { description: "Сеанс оновлено" },
         },
       },
       delete: {
@@ -316,11 +390,21 @@ const swaggerDocument = {
         summary: "Видалити сеанс (лише Admin)",
         security: [{ bearerAuth: [] }],
         parameters: [
-          { name: "movieId", in: "path", required: true, schema: { type: "string" } },
-          { name: "sessionId", in: "path", required: true, schema: { type: "string" } },
+          {
+            name: "movieId",
+            in: "path",
+            required: true,
+            schema: { type: "string" },
+          },
+          {
+            name: "sessionId",
+            in: "path",
+            required: true,
+            schema: { type: "string" },
+          },
         ],
         responses: {
-          '200': { description: "Сеанс видалено" },
+          200: { description: "Сеанс видалено" },
         },
       },
     },
@@ -330,8 +414,18 @@ const swaggerDocument = {
         summary: "Забронювати місце на сеанс",
         security: [{ bearerAuth: [] }],
         parameters: [
-          { name: "movieId", in: "path", required: true, schema: { type: "string" } },
-          { name: "sessionId", in: "path", required: true, schema: { type: "string" } },
+          {
+            name: "movieId",
+            in: "path",
+            required: true,
+            schema: { type: "string" },
+          },
+          {
+            name: "sessionId",
+            in: "path",
+            required: true,
+            schema: { type: "string" },
+          },
         ],
         requestBody: {
           required: true,
@@ -342,7 +436,7 @@ const swaggerDocument = {
           },
         },
         responses: {
-          '200': { description: "Місце заброньовано" },
+          200: { description: "Місце заброньовано" },
         },
       },
     },
@@ -351,11 +445,21 @@ const swaggerDocument = {
         tags: ["MoviesInCinema"],
         summary: "Отримати доступні місця на сеанс",
         parameters: [
-          { name: "movieId", in: "path", required: true, schema: { type: "string" } },
-          { name: "sessionId", in: "path", required: true, schema: { type: "string" } },
+          {
+            name: "movieId",
+            in: "path",
+            required: true,
+            schema: { type: "string" },
+          },
+          {
+            name: "sessionId",
+            in: "path",
+            required: true,
+            schema: { type: "string" },
+          },
         ],
         responses: {
-          '200': { description: "Список доступних місць" },
+          200: { description: "Список доступних місць" },
         },
       },
     },
@@ -365,7 +469,7 @@ const swaggerDocument = {
         summary: "Отримати квитки користувача",
         security: [{ bearerAuth: [] }],
         responses: {
-          '200': { description: "Список квитків" },
+          200: { description: "Список квитків" },
         },
       },
     },
@@ -375,10 +479,15 @@ const swaggerDocument = {
         summary: "Отримати квиток за ID",
         security: [{ bearerAuth: [] }],
         parameters: [
-          { name: "ticketId", in: "path", required: true, schema: { type: "string" } },
+          {
+            name: "ticketId",
+            in: "path",
+            required: true,
+            schema: { type: "string" },
+          },
         ],
         responses: {
-          '200': { description: "Деталі квитка" },
+          200: { description: "Деталі квитка" },
         },
       },
       delete: {
@@ -386,10 +495,15 @@ const swaggerDocument = {
         summary: "Видалити квиток",
         security: [{ bearerAuth: [] }],
         parameters: [
-          { name: "ticketId", in: "path", required: true, schema: { type: "string" } },
+          {
+            name: "ticketId",
+            in: "path",
+            required: true,
+            schema: { type: "string" },
+          },
         ],
         responses: {
-          '200': { description: "Квиток видалено" },
+          200: { description: "Квиток видалено" },
         },
       },
     },
@@ -417,75 +531,89 @@ const swaggerDocument = {
           password: { type: "string" },
         },
       },
-      UpdateCustomer: { 
+      UpdatePassword: {
+        type: "object",
+        properties: {
+          password: {
+            type: "string",
+            example: "123450987",
+            description: "Старий пароль користувача",
+          },
+          newPassword: {
+            type: "string",
+            example: "1234509876",
+            description: "Новий пароль користувача",
+          },
+        },
+      },
+      UpdateCustomer: {
         type: "object",
         properties: {
           email: { type: "string", example: "newemail@example.com" },
-          password: { type: "string", example: "newpassword123" },
           firstName: { type: "string", example: "John" },
           birthdate: { type: "string", format: "date", example: "2000-01-01" },
         },
       },
-      MovieInCinema: { 
+      MovieInCinema: {
         type: "object",
         required: ["movieId"],
         properties: {
           movieId: { type: "integer", example: 550 },
         },
       },
-      Session: {  
+      Session: {
         type: "object",
         properties: {
           dateTime: {
             type: "string",
             format: "date-time",
-            example: "2025-04-27T18:30:00Z"
+            example: "2025-04-27T18:30:00Z",
           },
-          price: { 
+          price: {
             type: "number",
             format: "float",
-            example: 150.00
+            example: 150.0,
           },
           seats: {
             type: "array",
-            items: { $ref: "#/components/schemas/Seat" }
+            items: { $ref: "#/components/schemas/Seat" },
           },
         },
       },
-      SessionAdd: {  
+      SessionAdd: {
         type: "object",
         properties: {
           dateTime: {
             type: "string",
             format: "date-time",
-            example: "2025-04-27T18:30:00Z"
+            example: "2025-04-27T18:30:00Z",
           },
-          price: { 
+          price: {
             type: "number",
             format: "float",
-            example: 150.00
+            example: 150.0,
           },
           seats: {
             type: "array",
-            items: {type: "number", example: 5 }
+            items: { type: "number", example: 5 },
           },
         },
       },
-      Seat: { 
+      Seat: {
         type: "object",
         properties: {
           seatNumber: { type: "integer", example: 12 },
           isBooked: { type: "boolean", example: false },
         },
       },
-      Book: { 
+      Book: {
         type: "object",
         properties: {
           seatNumber: { type: "integer", example: 4 },
         },
       },
     },
-  }
+  },
 };
 
 module.exports = { swaggerDocument, swaggerUi };

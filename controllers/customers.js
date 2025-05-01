@@ -188,7 +188,6 @@ exports.editCustomerInfo = (req, res) => {
       })
     );
 };
-
 exports.updatePassword = (req, res) => {
   const { errors, isValid } = validateRegistrationForm(req.body);
 
@@ -196,43 +195,41 @@ exports.updatePassword = (req, res) => {
     return res.status(400).json(errors);
   }
 
-  Customer.findOne({ _id: req.user.id }, (err, customer) => {
-    let oldPassword = req.body.password;
-
-    customer.comparePassword(oldPassword, function(err, isMatch) {
-      if (!isMatch) {
-        errors.password = "Password does not match";
-        res.json(errors);
-      } else {
-        let newPassword = req.body.newPassword;
-
-        bcrypt.genSalt(10, (err, salt) => {
-          bcrypt.hash(newPassword, salt, (err, hash) => {
-            if (err) throw err;
-            newPassword = hash;
-            Customer.findOneAndUpdate(
-              { _id: req.user.id },
-              {
-                $set: {
-                  password: newPassword
-                }
-              },
-              { new: true }
-            )
-              .then(customer => {
-                res.json({
-                  message: "Password successfully changed",
-                  customer: customer
-                });
-              })
-              .catch(err =>
-                res.status(400).json({
-                  message: `Error happened on server: "${err}" `
-                })
-              );
-          });
-        });
+  Customer.findOne({ _id: req.user.id })
+    .then(customer => {
+      if (!customer) {
+        return res.status(404).json({ message: "Customer not found" });
       }
+
+      const oldPassword = req.body.password;
+      return customer.comparePassword(oldPassword)
+        .then(isMatch => {
+          if (!isMatch) {
+            return res.status(400).json({ password: "Password does not match" });
+          }
+
+          const newPassword = req.body.newPassword;
+          return bcrypt.genSalt(10)
+            .then(salt => bcrypt.hash(newPassword, salt))
+            .then(hash => {
+              return Customer.findByIdAndUpdate(
+                req.user.id,
+                { $set: { password: hash } },
+                { new: true }
+              );
+            })
+            .then(updatedCustomer => {
+              res.json({
+                message: "Password successfully changed",
+                customer: updatedCustomer
+              });
+            });
+        });
+    })
+    .catch(err => {
+      console.error("Error updating password:", err);
+      res.status(500).json({
+        message: `Error happened on server: "${err.message || err}"`
+      });
     });
-  });
 };
