@@ -9,7 +9,8 @@ const swaggerDocument = {
   },
   servers: [
     {
-      url: "https://soft-serve-practice-back.vercel.app/api",
+      // url: "https://soft-serve-practice-back.vercel.app/api",
+      url: "http://localhost:4000/api",
     },
   ],
   tags: [
@@ -147,6 +148,95 @@ const swaggerDocument = {
         },
       },
     },
+    "/movies/search": {
+      get: {
+        tags: ["Movies"],
+        summary: "Пошук фільмів за назвою",
+        parameters: [
+          {
+            name: "query",
+            in: "query",
+            required: true,
+            schema: { type: "string" },
+            description: "Пошуковий запит (назва фільму)",
+          },
+          {
+            name: "page",
+            in: "query",
+            required: false,
+            schema: { type: "integer", default: 1 },
+            description: "Номер сторінки результатів",
+          },
+          {
+            name: "language",
+            in: "query",
+            required: false,
+            schema: { type: "string", default: "en-US" },
+            description: "Мова результатів (наприклад: uk-UA)",
+          },
+          {
+            name: "year",
+            in: "query",
+            required: false,
+            schema: { type: "integer" },
+            description: "Рік випуску",
+          },
+        ],
+        responses: {
+          200: { description: "Успішний результат пошуку" },
+          400: { description: "Відсутній параметр query" },
+          404: { description: "Фільми не знайдені" },
+        },
+      },
+    },
+    "/movies/filter": {
+      get: {
+        tags: ["Movies"],
+        summary: "Фільтрація фільмів за різними критеріями (TMDB Discover)",
+        parameters: [
+          {
+            name: "page",
+            in: "query",
+            required: false,
+            schema: { type: "integer", default: 1 },
+            description: "Номер сторінки результатів",
+          },
+          {
+            name: "language",
+            in: "query",
+            required: false,
+            schema: { type: "string", default: "en-US" },
+            description: "Мова результатів (наприклад: uk-UA )",
+          },
+          {
+            name: "with_genres",
+            in: "query",
+            required: false,
+            schema: { type: "string" },
+            description: "ID жанрів через кому (наприклад: 28,35)",
+          },
+          {
+            name: "primary_release_year",
+            in: "query",
+            required: false,
+            schema: { type: "string" },
+            description: "Рік виходу (наприклад: 2023)",
+          },
+          {
+            name: "sort_by",
+            in: "query",
+            required: false,
+            schema: { type: "string", default: "popularity.desc" },
+            description:
+              "Сортування (наприклад: popularity.desc, release_date.desc)",
+          },
+        ],
+        responses: {
+          200: { description: "Фільтровані фільми" },
+          404: { description: "Фільми не знайдені" },
+        },
+      },
+    },
     "/favorites": {
       get: {
         tags: ["Favorites"],
@@ -192,9 +282,59 @@ const swaggerDocument = {
       },
     },
     "/movies-in-cinema": {
-      get: {
-        tags: ["MoviesInCinema"],
-        summary: "Перегляд усіх фільмів в прокаті",
+  get: {
+    tags: ["MoviesInCinema"],
+    summary: "Перегляд усіх фільмів з можливістю фільтрації та пошуку по TMDB деталях",
+    parameters: [
+      {
+        name: "status",
+        in: "query",
+        description: "Фільтр статусу фільмів: 'inCinema' або 'comingSoon'",
+        required: false,
+        schema: {
+          type: "string",
+          enum: ["inCinema", "comingSoon"]
+        }
+      },
+      {
+        name: "title",
+        in: "query",
+        description: "Пошук по назві фільму (tmdbDetails.title)",
+        required: false,
+        schema: {
+          type: "string"
+        }
+      },
+      {
+        name: "genre",
+        in: "query",
+        description: "Пошук по жанру фільму (tmdbDetails.genres.name)",
+        required: false,
+        schema: {
+          type: "string"
+        }
+      },
+      {
+        name: "year",
+        in: "query",
+        description: "Фільтр по року виходу фільму (tmdbDetails.release_date, формат YYYY)",
+        required: false,
+        schema: {
+          type: "string",
+          pattern: "^\\d{4}$"
+        }
+      },
+      {
+        name: "minRating",
+        in: "query",
+        description: "Фільтр по мінімальній середній оцінці (tmdbDetails.vote_average)",
+        required: false,
+        schema: {
+          type: "number",
+          format: "float"
+        }
+      }
+    ],
         responses: {
           200: { description: "Список фільмів в прокаті" },
         },
@@ -247,6 +387,43 @@ const swaggerDocument = {
                 schema: { $ref: "#/components/schemas/MovieInCinema" },
               },
             },
+          },
+          404: {
+            description: "Фільм не знайдено",
+          },
+        },
+      },
+      put: {
+        tags: ["MoviesInCinema"],
+        summary: "Редагувати фільм за його movieId (лише Admin)",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "movieId",
+            in: "path",
+            required: true,
+            schema: {
+              type: "string"
+            }
+          }
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                description: "Дані для оновлення фільму",
+                example: {
+                  isInCinema: true,
+                }
+              }
+            }
+          }
+        },
+        responses: {
+          200: {
+            description: "Дані фільму оновленно",
           },
           404: {
             description: "Фільм не знайдено",
@@ -559,6 +736,7 @@ const swaggerDocument = {
         required: ["movieId"],
         properties: {
           movieId: { type: "integer", example: 550 },
+          isInCinema: { type: "boolean", example: true },
         },
       },
       Session: {
@@ -609,7 +787,7 @@ const swaggerDocument = {
       Book: {
         type: "object",
         properties: {
-          seatNumber: { type: "integer", example: 4 },
+          seatNumber: { type: "integer", exampale: 4 },
         },
       },
     },

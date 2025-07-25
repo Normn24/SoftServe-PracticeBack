@@ -18,6 +18,10 @@ const MovieInCinemaSchema = new Schema(
       type: Number,
       required: true,
     },
+    isInCinema: {
+      type: Boolean,
+      // required: true,
+    },
     sessions: [SessionSchema],
   },
   { strict: false }

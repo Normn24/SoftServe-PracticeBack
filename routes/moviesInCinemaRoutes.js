@@ -14,11 +14,18 @@ const {
   getAllSessions,
   bookSeat,
   getAvailableSeats,
+  editMovie,
 } = require("../controllers/moviesInCinema");
 
 router.get("/", getAllMovies);
 
 router.get("/:id", getMovieById);
+
+router.put(
+  "/:id",
+  passport.authenticate("jwt-admin", { session: false }),
+  editMovie
+);
 
 router.post(
   "/",
@@ -60,9 +67,6 @@ router.post(
   bookSeat
 );
 
-router.get(
-  "/:id/sessions/:sessionId/seats",
-  getAvailableSeats
-);
+router.get("/:id/sessions/:sessionId/seats", getAvailableSeats);
 
 module.exports = router;

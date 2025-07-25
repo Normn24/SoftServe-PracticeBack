@@ -10,9 +10,6 @@ const tmdb = axios.create({
     "Content-Type": "application/json",
     Authorization: `Bearer ${TMDB_API_KEY}`,
   },
-  params: {
-    language: "en-US",
-  },
 });
 
 module.exports = {
@@ -48,14 +45,21 @@ module.exports = {
 
   getMovieDetails: async (movieId, params = {}) => {
     try {
-      const [detailsResponse, videosResponse, castResponse] = await Promise.all([
-        tmdb.get(`/movie/${movieId}`, { params }),
+      const [detailsResponse, videosResponse, recommendationsResponse, imagesResponse, castResponse] = await Promise.all([
+        tmdb.get(`/movie/${movieId}`),
         tmdb.get(`/movie/${movieId}/videos`),
-        tmdb.get(`/movie/${movieId}/credits`, { params }),
+        tmdb.get(`/movie/${movieId}/recommendations`),
+        tmdb.get(`/movie/${movieId}/images`),
+        tmdb.get(`/movie/${movieId}/credits`),
       ]);
+      console.log(videosResponse.data.results.filter(video => video.type === "Trailer"))
       return {
         ...detailsResponse.data,
-        videos: videosResponse.data?.results[1] || null,
+        recommendations: recommendationsResponse.data?.results.slice(0, 7) || null,
+        images: imagesResponse.data?.backdrops.slice(0, 7) || null,
+        videos: videosResponse.data?.results
+    ? videosResponse.data.results.filter(video => video.type === "Trailer")
+    : null,
         cast: castResponse.data?.cast || null
       };
     } catch (err) {
@@ -63,6 +67,26 @@ module.exports = {
         `Failed to fetch TMDB data for movieId ${movieId}:`,
         err.message
       );
+      return null;
+    }
+  },
+
+  searchMovies: async (params = {}) => {
+    try {
+      const response = await tmdb.get(`/search/movie`, { params });
+      return response.data;
+    } catch (error) {
+      console.error("TMDB Search Error:", error.message);
+      return null;
+    }
+  },
+
+  discoverMovies: async (params = {}) => {
+    try {
+      const response = await tmdb.get(`/discover/movie`, { params });
+      return response.data;
+    } catch (error) {
+      console.error("TMDB Discover Error:", error.message);
       return null;
     }
   },

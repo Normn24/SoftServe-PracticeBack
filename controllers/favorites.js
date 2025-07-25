@@ -66,6 +66,7 @@ exports.getFavorites = async (req, res) => {
     }
 
     const movieRequests = favoriteIds.map(id => tmdbService.getMovieDetails(id));
+    
     const movies = await Promise.all(movieRequests)
       .then(results => results.filter(movie => movie))
       .catch(error => {
