@@ -9,8 +9,8 @@ const swaggerDocument = {
   },
   servers: [
     {
-      // url: "https://soft-serve-practice-back.vercel.app/api",
-      url: "http://localhost:4000/api",
+      url: "https://soft-serve-practice-back.vercel.app/api",
+      // url: "http://localhost:4000/api",
     },
   ],
   tags: [

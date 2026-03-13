@@ -430,69 +430,75 @@ exports.getAllSessions = (req, res) => {
 };
 
 exports.bookSeat = async (req, res) => {
-  const movieId = req.params.id;
-  const sessionId = req.params.sessionId;
+  const { id: movieId, sessionId } = req.params;
   const { seatNumber } = req.body;
   const userId = req.user.id;
 
   if (seatNumber === undefined) {
-    return res
-      .status(400)
-      .json({ message: "Missing required field: seatNumber." });
+    return res.status(400).json({ message: "Missing required field: seatNumber." });
   }
 
   try {
-    const movie = await MovieInCinema.findOne({ movieId: movieId });
-    if (!movie) {
-      return res
-        .status(404)
-        .json({ message: `Movie with movieId "${movieId}" not found.` });
+    const updatedMovie = await MovieInCinema.findOneAndUpdate(
+      {
+        movieId,
+        "sessions._id": sessionId,
+        "sessions.seats.seatNumber": seatNumber,
+        "sessions.seats.isBooked": false
+      },
+      {
+        $set: { "sessions.$[session].seats.$[seat].isBooked": true }
+      },
+      {
+        arrayFilters: [
+          { "session._id": sessionId },
+          { "seat.seatNumber": seatNumber }
+        ],
+        new: true
+      }
+    );
+
+    if (!updatedMovie) {
+      const movie = await MovieInCinema.findOne({ movieId });
+      
+      if (!movie) {
+        return res.status(404).json({ message: `Movie with movieId "${movieId}" not found.` });
+      }
+
+      const session = movie.sessions.id(sessionId);
+      
+      if (!session) {
+        return res.status(404).json({ message: `Session with id "${sessionId}" not found.` });
+      }
+
+      const seat = session.seats.find((s) => s.seatNumber === seatNumber);
+      
+      if (!seat) {
+        return res.status(404).json({ error: `Seat “${seatNumber}” does not exist in this session.` });
+      }
+      
+      if (seat.isBooked) {
+        return res.status(409).json({ error: `Seat “${seatNumber}” is already booked.` });
+      }
     }
 
-    const session = movie.sessions.id(sessionId);
-    if (!session) {
-      return res
-        .status(404)
-        .json({ message: `Session with id "${sessionId}" not found.` });
-    }
-
-    const seat = session.seats.find((s) => s.seatNumber === seatNumber);
-    if (!seat) {
-      return res
-        .status(404)
-        .json({
-          error: `Seat “${seatNumber}” does not exist in this session.`,
-        });
-    }
-    if (seat.isBooked) {
-      return res
-        .status(409)
-        .json({ error: `Seat “${seatNumber}” is already booked.` });
-    }
-
-    seat.isBooked = true;
-    await movie.save();
-
-    const newTicket = new Ticket({
+    const savedTicket = await Ticket.create({
       user: userId,
       movieInCinema: movieId,
       session: sessionId,
-      seatNumber: seatNumber,
+      seatNumber
     });
-    const savedTicket = await newTicket.save();
 
     res.status(201).json({
       message: `Seat “${seatNumber}” has been successfully booked.`,
       ticket: savedTicket,
     });
   } catch (err) {
-    console.error("Error during booking:", err);
-    res.status(400).json({
-      message: `Error happened on server: "${err.message || err}" `,
+    res.status(500).json({
+      message: `Error happened on server: "${err.message || err}"`,
     });
   }
 };
-
 exports.getAvailableSeats = (req, res) => {
   const movieId = req.params.id;
   const sessionId = req.params.sessionId;

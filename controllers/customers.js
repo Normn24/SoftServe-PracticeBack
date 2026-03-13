@@ -2,234 +2,186 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const _ = require("lodash");
 const uniqueRandom = require("unique-random");
+const { z } = require("zod");
 const rand = uniqueRandom(10000000, 99999999);
 
 const Customer = require("../models/Customer");
-
-const validateRegistrationForm = require("../validation/validationHelper");
-
 const queryCreator = require("../commonHelpers/queryCreator");
 
-exports.createCustomer = (req, res, next) => {
+const formatZodErrors = (zodError) => {
+  const errors = {};
+  zodError.errors.forEach(err => {
+    if (err.path.length > 0) {
+      errors[err.path] = err.message;
+    }
+  });
+  return Object.keys(errors).length > 0? errors : { message: "Validation error" };
+};
+
+const nameRegex = /^[a-zA-Zа-яА-Я]+$/;
+const loginRegex = /^[a-zA-Z0-9]+$/;
+const passwordRegex = /^[a-zA-Z0-9]+$/;
+
+const registrationSchema = z.object({
+  firstName: z.string().regex(nameRegex, "Allowed characters for First Name is a-z, A-Z, а-я, А-Я.").min(2).max(25).optional(),
+  lastName: z.string().regex(nameRegex, "Allowed characters for Last Name is a-z, A-Z, а-я, А-Я.").min(2).max(25).optional(),
+  login: z.string().regex(loginRegex, "Allowed characters for login is a-z, A-Z, 0-9.").min(3).max(10).optional(),
+  email: z.string().email("That is not a valid email."),
+  password: z.string().regex(passwordRegex, "Allowed characters for password is a-z, A-Z, 0-9.").min(7).max(30)
+});
+
+const loginSchema = z.object({
+  loginOrEmail: z.string().min(1, "Login or Email is required"),
+  password: z.string().min(1, "Password is required")
+});
+
+const updateCustomerSchema = z.object({
+  firstName: z.string().regex(nameRegex, "Allowed characters for First Name is a-z, A-Z, а-я, А-Я.").min(2).max(25).optional(),
+  lastName: z.string().regex(nameRegex, "Allowed characters for Last Name is a-z, A-Z, а-я, А-Я.").min(2).max(25).optional(),
+  login: z.string().regex(loginRegex, "Allowed characters for login is a-z, A-Z, 0-9.").min(3).max(10).optional(),
+  email: z.string().email("That is not a valid email.").optional(),
+});
+
+const updatePasswordSchema = z.object({
+  password: z.string().min(1, "Password is required"),
+  newPassword: z.string().regex(passwordRegex, "Allowed characters for password is a-z, A-Z, 0-9.").min(7).max(30)
+});
+
+exports.createCustomer = async (req, res) => {
+  const validation = registrationSchema.safeParse(req.body);
+  if (!validation.success) {
+    return res.status(400).json(formatZodErrors(validation.error));
+  }
+
   const initialQuery = _.cloneDeep(req.body);
   initialQuery.customerNo = rand();
 
-  const { errors, isValid } = validateRegistrationForm(req.body);
-
-  if (!isValid) {
-    return res.status(400).json(errors);
+  const existingCustomer = await Customer.findOne({ email: req.body.email });
+  
+  if (existingCustomer) {
+    return res.status(400).json({ message: `Email ${existingCustomer.email} already exists` });
   }
 
-  Customer.findOne({
-    $or: [{ email: req.body.email }]
-  })
-    .then(customer => {
-      if (customer) {
-        if (customer.email === req.body.email) {
-          return res
-            .status(400)
-            .json({ message: `Email ${customer.email} already exists"` });
-        }
-      }
-
-      const newCustomer = new Customer(queryCreator(initialQuery));
-
-      bcrypt.genSalt(10, (err, salt) => {
-        bcrypt.hash(newCustomer.password, salt, (err, hash) => {
-          if (err) {
-            res
-              .status(400)
-              .json({ message: `Error happened on server: ${err}` });
-
-            return;
-          }
-
-          newCustomer.password = hash;
-          newCustomer
-            .save()
-            .then(customer => res.json(customer))
-            .catch(err =>
-              res.status(400).json({
-                message: `Error happened on server: "${err}" `
-              })
-            );
-        });
-      });
-    })
-    .catch(err =>
-      res.status(400).json({
-        message: `Error happened on server: "${err}" `
-      })
-    );
+  const newCustomer = new Customer(queryCreator(initialQuery));
+  
+  const salt = await bcrypt.genSalt(10);
+  const hash = await bcrypt.hash(newCustomer.password, salt);
+  
+  newCustomer.password = hash;
+  const savedCustomer = await newCustomer.save();
+  
+  res.json(savedCustomer);
 };
 
-exports.loginCustomer = async (req, res, next) => {
-  const { errors, isValid } = validateRegistrationForm(req.body);
-
-  if (!isValid) {
-    return res.status(400).json(errors);
+exports.loginCustomer = async (req, res) => {
+  const validation = loginSchema.safeParse(req.body);
+  if (!validation.success) {
+    return res.status(400).json(formatZodErrors(validation.error));
   }
 
   const loginOrEmail = req.body.loginOrEmail;
   const password = req.body.password;
 
-  Customer.findOne({
-    $or: [{ email: loginOrEmail }, { login: loginOrEmail }]
-  })
-    .then(customer => {
-      if (!customer) {
-        errors.loginOrEmail = "Customer not found";
-        return res.status(404).json(errors);
-      }
+  const customer = await Customer.findOne({ 
+    $or: [{ email: loginOrEmail }, { login: loginOrEmail }] 
+  });
 
-      bcrypt.compare(password, customer.password).then(isMatch => {
-        if (isMatch) {
-          const payload = {
-            id: customer.id,
-            firstName: customer.firstName,
-            lastName: customer.lastName,
-            isAdmin: customer.isAdmin
-          }; 
+  if (!customer) {
+    return res.status(404).json({ loginOrEmail: "Customer not found" });
+  }
 
-          jwt.sign(
-            payload,
-            process.env.SECRET_OR_KEY,
-            { expiresIn: 36000 },
-            (err, token) => {
-              res.json({
-                success: true,
-                token: "Bearer " + token
-              });
-            }
-          );
-        } else {
-          errors.password = "Password incorrect";
-          return res.status(400).json(errors);
-        }
-      });
-    })
-    .catch(err =>
-      res.status(400).json({
-        message: `Error happened on server: "${err}" `
-      })
-    );
+  const isMatch = await bcrypt.compare(password, customer.password);
+
+  if (isMatch) {
+    const payload = {
+      id: customer.id,
+      firstName: customer.firstName,
+      lastName: customer.lastName,
+      isAdmin: customer.isAdmin
+    };
+
+    const token = jwt.sign(payload, process.env.SECRET_OR_KEY, { expiresIn: 36000 });
+    
+    res.json({ success: true, token: "Bearer " + token });
+  } else {
+    return res.status(400).json({ password: "Password incorrect" });
+  }
 };
 
-exports.getCustomer = (req, res) => {
+exports.getCustomer = async (req, res) => {
   res.json(req.user);
 };
 
-exports.editCustomerInfo = (req, res) => {
+exports.editCustomerInfo = async (req, res) => {
+  const validation = updateCustomerSchema.safeParse(req.body);
+  if (!validation.success) {
+    return res.status(400).json(formatZodErrors(validation.error));
+  }
+
   const initialQuery = _.cloneDeep(req.body);
+  const currentEmail = req.user.email;
+  const currentLogin = req.user.login;
+  let newEmail;
+  let newLogin;
 
-  const { errors, isValid } = validateRegistrationForm(req.body);
-
-  if (!isValid) {
-    return res.status(400).json(errors);
+  if (req.body.email) {
+    newEmail = req.body.email;
+    if (currentEmail!== newEmail) {
+      const customer = await Customer.findOne({ email: newEmail });
+      if (customer) {
+        return res.status(400).json({ email: `Email ${newEmail} is already exists` });
+      }
+    }
   }
 
-  Customer.findOne({ _id: req.user.id })
-    .then(customer => {
-      if (!customer) {
-        errors.id = "Customer not found";
-        return res.status(404).json(errors);
+  if (req.body.login) {
+    newLogin = req.body.login;
+    if (currentLogin!== newLogin) {
+      const customer = await Customer.findOne({ login: newLogin });
+      if (customer) {
+        return res.status(400).json({ login: `Login ${newLogin} is already exists` });
       }
+    }
+  }
 
-      const currentEmail = customer.email;
-      const currentLogin = customer.login;
-      let newEmail;
-      let newLogin;
+  const updatedCustomerQuery = queryCreator(initialQuery);
+  const updatedCustomer = await Customer.findOneAndUpdate(
+    { _id: req.user.id },
+    { $set: updatedCustomerQuery },
+    { new: true }
+  );
 
-      if (req.body.email) {
-        newEmail = req.body.email;
-
-        if (currentEmail !== newEmail) {
-          Customer.findOne({ email: newEmail }).then(customer => {
-            if (customer) {
-              errors.email = `Email ${newEmail} is already exists`;
-              res.status(400).json(errors);
-              return;
-            }
-          });
-        }
-      }
-
-      if (req.body.login) {
-        newLogin = req.body.login;
-
-        if (currentLogin !== newLogin) {
-          Customer.findOne({ login: newLogin }).then(customer => {
-            if (customer) {
-              errors.login = `Login ${newLogin} is already exists`;
-              res.status(400).json(errors);
-              return;
-            }
-          });
-        }
-      }
-
-      const updatedCustomer = queryCreator(initialQuery);
-
-      Customer.findOneAndUpdate(
-        { _id: req.user.id },
-        { $set: updatedCustomer },
-        { new: true }
-      )
-        .then(customer => res.json(customer))
-        .catch(err =>
-          res.status(400).json({
-            message: `Error happened on server: "${err}" `
-          })
-        );
-    })
-    .catch(err =>
-      res.status(400).json({
-        message: `Error happened on server:"${err}" `
-      })
-    );
+  res.json(updatedCustomer);
 };
-exports.updatePassword = (req, res) => {
-  const { errors, isValid } = validateRegistrationForm(req.body);
 
-  if (!isValid) {
-    return res.status(400).json(errors);
+exports.updatePassword = async (req, res) => {
+  const validation = updatePasswordSchema.safeParse(req.body);
+  if (!validation.success) {
+    return res.status(400).json(formatZodErrors(validation.error));
   }
 
-  Customer.findOne({ _id: req.user.id })
-    .then(customer => {
-      if (!customer) {
-        return res.status(404).json({ message: "Customer not found" });
-      }
+  const customer = await Customer.findOne({ _id: req.user.id });
 
-      const oldPassword = req.body.password;
-      return customer.comparePassword(oldPassword)
-        .then(isMatch => {
-          if (!isMatch) {
-            return res.status(400).json({ password: "Password does not match" });
-          }
+  if (!customer) {
+    const error = new Error("Customer not found");
+    error.statusCode = 404;
+    throw error;
+  }
 
-          const newPassword = req.body.newPassword;
-          return bcrypt.genSalt(10)
-            .then(salt => bcrypt.hash(newPassword, salt))
-            .then(hash => {
-              return Customer.findByIdAndUpdate(
-                req.user.id,
-                { $set: { password: hash } },
-                { new: true }
-              );
-            })
-            .then(updatedCustomer => {
-              res.json({
-                message: "Password successfully changed",
-                customer: updatedCustomer
-              });
-            });
-        });
-    })
-    .catch(err => {
-      console.error("Error updating password:", err);
-      res.status(500).json({
-        message: `Error happened on server: "${err.message || err}"`
-      });
-    });
+  const oldPassword = req.body.password;
+  const isMatch = await customer.comparePassword(oldPassword);
+
+  if (!isMatch) {
+    return res.status(400).json({ password: "Password does not match" });
+  }
+
+  const newPassword = req.body.newPassword;
+  
+  const salt = await bcrypt.genSalt(10);
+  const hash = await bcrypt.hash(newPassword, salt);
+  
+  customer.password = hash;
+  const savedCustomer = await customer.save();
+
+  res.json(savedCustomer);
 };
