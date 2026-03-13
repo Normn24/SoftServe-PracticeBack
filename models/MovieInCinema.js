@@ -24,7 +24,7 @@ const MovieInCinemaSchema = new Schema(
     },
     sessions: [SessionSchema],
   },
-  { strict: false }
+  { strict: false, bufferCommands: false }
 );
 
 module.exports = mongoose.model("MovieInCinema", MovieInCinemaSchema);
