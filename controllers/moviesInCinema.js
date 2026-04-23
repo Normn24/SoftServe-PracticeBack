@@ -2,6 +2,7 @@ const MovieInCinema = require("../models/MovieInCinema");
 const Ticket = require("../models/Ticket");
 const queryCreator = require("../commonHelpers/queryCreator");
 const tmdbService = require("../services/tmdbService");
+const { sendTicketConfirmation } = require('./ticket');
 
 exports.addMovie = async (req, res) => {
   const movieData = req.body;
@@ -433,72 +434,67 @@ exports.bookSeat = async (req, res) => {
   const { id: movieId, sessionId } = req.params;
   const { seatNumber } = req.body;
   const userId = req.user.id;
-
+ 
   if (seatNumber === undefined) {
-    return res.status(400).json({ message: "Missing required field: seatNumber." });
+    return res.status(400).json({ message: 'Missing required field: seatNumber.' });
   }
-
-  try {
-    const updatedMovie = await MovieInCinema.findOneAndUpdate(
-      {
-        movieId,
-        "sessions._id": sessionId,
-        "sessions.seats.seatNumber": seatNumber,
-        "sessions.seats.isBooked": false
-      },
-      {
-        $set: { "sessions.$[session].seats.$[seat].isBooked": true }
-      },
-      {
-        arrayFilters: [
-          { "session._id": sessionId },
-          { "seat.seatNumber": seatNumber }
-        ],
-        new: true
-      }
-    );
-
-    if (!updatedMovie) {
-      const movie = await MovieInCinema.findOne({ movieId });
-      
-      if (!movie) {
-        return res.status(404).json({ message: `Movie with movieId "${movieId}" not found.` });
-      }
-
-      const session = movie.sessions.id(sessionId);
-      
-      if (!session) {
-        return res.status(404).json({ message: `Session with id "${sessionId}" not found.` });
-      }
-
-      const seat = session.seats.find((s) => s.seatNumber === seatNumber);
-      
-      if (!seat) {
-        return res.status(404).json({ error: `Seat “${seatNumber}” does not exist in this session.` });
-      }
-      
-      if (seat.isBooked) {
-        return res.status(409).json({ error: `Seat “${seatNumber}” is already booked.` });
-      }
+ 
+  const updatedMovie = await MovieInCinema.findOneAndUpdate(
+    {
+      movieId,
+      'sessions._id': sessionId,
+      'sessions.seats.seatNumber': seatNumber,
+      'sessions.seats.isBooked': false,
+    },
+    { $set: { 'sessions.$[session].seats.$[seat].isBooked': true } },
+    {
+      arrayFilters: [
+        { 'session._id': sessionId },
+        { 'seat.seatNumber': seatNumber },
+      ],
+      new: true,
     }
-
-    const savedTicket = await Ticket.create({
-      user: userId,
-      movieInCinema: movieId,
-      session: sessionId,
-      seatNumber
-    });
-
-    res.status(201).json({
-      message: `Seat “${seatNumber}” has been successfully booked.`,
-      ticket: savedTicket,
-    });
-  } catch (err) {
-    res.status(500).json({
-      message: `Error happened on server: "${err.message || err}"`,
-    });
+  );
+ 
+  if (!updatedMovie) {
+    const movie = await MovieInCinema.findOne({ movieId });
+    if (!movie) {
+      return res.status(404).json({ message: `Movie "${movieId}" not found.` });
+    }
+    const session = movie.sessions.id(sessionId);
+    if (!session) {
+      return res.status(404).json({ message: `Session "${sessionId}" not found.` });
+    }
+    const seat = session.seats.find((s) => s.seatNumber === seatNumber);
+    if (!seat) {
+      return res.status(404).json({ message: `Seat "${seatNumber}" does not exist.` });
+    }
+    if (seat.isBooked) {
+      return res.status(409).json({ message: `Seat "${seatNumber}" is already booked.` });
+    }
   }
+ 
+  const session = updatedMovie.sessions.id(sessionId);
+ 
+  const savedTicket = await Ticket.create({
+    user: userId,
+    movieInCinema: movieId,
+    session: sessionId,
+    seatNumber,
+  });
+ 
+  sendTicketConfirmation(
+    savedTicket,
+    updatedMovie.tmdbDetails?.title ?? 'Unknown Movie',
+    session?.dateTime ?? null
+  );
+ 
+  res.status(201).json({
+    message: `Seat "${seatNumber}" booked successfully.`,
+    ticket: savedTicket,
+  });
 };
+ 
 exports.getAvailableSeats = (req, res) => {
   const movieId = req.params.id;
   const sessionId = req.params.sessionId;

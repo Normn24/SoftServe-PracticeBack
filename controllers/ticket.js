@@ -1,11 +1,9 @@
 const Ticket = require('../models/Ticket');
 const MovieInCinema = require('../models/MovieInCinema');
+const Customer = require('../models/Customer');
+const { sendTicketEmail } = require('../services/emailService');
+const { generateTicketQR } = require('../services/qrService');
 
-/**
- * Повертає збагачений список квитків юзера.
- * Оскільки movieInCinema зберігається як Number (не ObjectId),
- * populate не працює — робимо ручний lookup одним запитом до БД.
- */
 exports.getUserTickets = async (req, res) => {
   const userId = req.user.id;
 
@@ -15,16 +13,12 @@ exports.getUserTickets = async (req, res) => {
     return res.status(200).json([]);
   }
 
-  // Унікальні movieId щоб зробити один запит до БД замість N
   const movieIds = [...new Set(tickets.map((t) => t.movieInCinema))];
   const movies = await MovieInCinema.find({ movieId: { $in: movieIds } });
-
-  // Map для O(1) доступу замість .find() в циклі
   const movieMap = new Map(movies.map((m) => [m.movieId, m]));
 
   const enriched = tickets.map((ticket) => {
     const movie = movieMap.get(ticket.movieInCinema);
-    // session — це subdocument MongoDB, .id() шукає по _id
     const session = movie?.sessions?.id(ticket.session);
 
     return {
@@ -44,11 +38,10 @@ exports.getUserTickets = async (req, res) => {
 };
 
 exports.getTicketById = async (req, res) => {
-  const ticketId = req.params.ticketId;
-  const ticket = await Ticket.findById(ticketId);
+  const ticket = await Ticket.findById(req.params.ticketId);
 
   if (!ticket) {
-    const error = new Error(`Ticket with ID "${ticketId}" not found.`);
+    const error = new Error(`Ticket with ID "${req.params.ticketId}" not found.`);
     error.statusCode = 404;
     throw error;
   }
@@ -57,7 +50,7 @@ exports.getTicketById = async (req, res) => {
 };
 
 exports.deleteTicket = async (req, res) => {
-  const ticketId = req.params.ticketId;
+  const { ticketId } = req.params;
   const userId = req.user.id;
 
   const ticket = await Ticket.findById(ticketId);
@@ -75,7 +68,56 @@ exports.deleteTicket = async (req, res) => {
   }
 
   await Ticket.findByIdAndDelete(ticketId);
+  res.status(200).json({ message: `Ticket "${ticketId}" deleted.` });
+};
+
+exports.sendTicketConfirmation = async (ticket, movieTitle, sessionDateTime) => {
+  try {
+    const customer = await Customer.findById(ticket.user).select('email');
+    if (!customer?.email) return;
+
+    const qrDataUrl = await generateTicketQR(String(ticket._id));
+
+    await sendTicketEmail(customer.email, {
+      ticketId: String(ticket._id),
+      movieTitle,
+      sessionDateTime,
+      seatNumber: ticket.seatNumber,
+    }, qrDataUrl);
+  } catch (err) {
+    console.error('[sendTicketConfirmation] Failed to send email:', err.message);
+  }
+};
+
+exports.validateTicket = async (req, res) => {
+  const { ticketId } = req.params;
+
+  const ticket = await Ticket.findById(ticketId);
+
+  if (!ticket) {
+    const error = new Error(`Ticket "${ticketId}" not found.`);
+    error.statusCode = 404;
+    throw error;
+  }
+
+  if (ticket.isUsed) {
+    return res.status(409).json({
+      valid: false,
+      message: 'Ticket already used.',
+      ticket: { _id: ticket._id, seatNumber: ticket.seatNumber },
+    });
+  }
+
+  ticket.isUsed = true;
+  await ticket.save();
+
   res.status(200).json({
-    message: `Ticket with ID "${ticketId}" successfully deleted.`,
+    valid: true,
+    message: 'Ticket validated successfully.',
+    ticket: {
+      _id: ticket._id,
+      seatNumber: ticket.seatNumber,
+      movieInCinema: ticket.movieInCinema,
+    },
   });
 };
