@@ -14,6 +14,7 @@ const moviesRoutes = require('./routes/moviesRoutes');
 const favoritesRoutes = require('./routes/favoritesRoutes');
 const moviesInCinemaRoutes = require('./routes/moviesInCinemaRoutes');
 const ticketRoutes = require('./routes/ticketRoutes');
+const reviewRoutes = require('./routes/reviewRoutes');
 
 const app = express();
 
@@ -55,6 +56,7 @@ app.use('/api/movies', moviesRoutes);
 app.use('/api/favorites', favoritesRoutes);
 app.use('/api/movies-in-cinema', moviesInCinemaRoutes);
 app.use('/api/tickets', ticketRoutes);
+app.use('/api', reviewRoutes);
 
 if (process.env.NODE_ENV === 'production') {
   app.use(express.static('client/build'));
