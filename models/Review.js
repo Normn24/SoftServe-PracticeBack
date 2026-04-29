@@ -12,6 +12,10 @@ const ReviewSchema = new Schema(
       type: Number,
       required: true,
     },
+    movieTitle: {
+      type: String,
+      required: true
+    },
     ticketId: {
       type: Schema.Types.ObjectId,
       ref: 'Ticket',

@@ -12,6 +12,7 @@ const reviewSchema = z.object({
     direction: z.number().int().min(1).max(10),
   }),
   comment: z.string().max(1000).optional().default(''),
+  movieTitle: z.string().max(1000),
 });
 
 exports.createReview = async (req, res) => {
@@ -20,7 +21,7 @@ exports.createReview = async (req, res) => {
     return res.status(400).json({ message: 'Validation error', errors: parsed.error.flatten() });
   }
 
-  const { ticketId, ratings, comment } = parsed.data;
+  const { ticketId, ratings, comment, movieTitle } = parsed.data;
   const userId = req.user.id;
   const movieId = Number(req.params.movieId);
 
@@ -45,7 +46,7 @@ exports.createReview = async (req, res) => {
     throw error;
   }
 
-  const review = await Review.create({ user: userId, movieId, ticketId, ratings, comment });
+  const review = await Review.create({ user: userId, movieId, movieTitle, ticketId, ratings, comment });
   res.status(201).json(review);
 };
 

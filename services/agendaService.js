@@ -82,25 +82,25 @@ const sendPremiereEmail = async (to, movieTitle, movieId) => {
   await transporter.sendMail({
     from: `"CD Player Cinema" <${process.env.NODEMAILER_USER}>`,
     to,
-    subject: `«${movieTitle}» — прем'єра вже за 3 дні! 🎬`,
+    subject: `«${movieTitle}» — Premiere in 3 days! 🎬`,
     html: `
-      <div style="font-family:sans-serif;max-width:480px;margin:0 auto;background:#0e0e1b;color:#fff;border-radius:12px;overflow:hidden">
+      <div style="font-family:sans-serif;max-width:980px;margin:0 auto;background:#0e0e1b;color:#fff;border-radius:12px;overflow:hidden">
         <div style="background:#facc15;padding:24px;text-align:center">
           <h1 style="margin:0;color:#000;font-size:22px;font-weight:700">CD Player Cinema</h1>
         </div>
         <div style="padding:24px;text-align:center">
-          <p style="color:#9ca3af;font-size:14px;margin-bottom:8px">Фільм із вашого Wishlist виходить вже за 3 дні!</p>
+          <p style="color:#9ca3af;font-size:14px;margin-bottom:8px">The movie from your Wishlist is coming out in just 3 days!</p>
           <h2 style="color:#facc15;font-size:24px;margin:0 0 20px">${movieTitle}</h2>
           <a
-            href="${process.env.APP_BASE_URL || 'http://localhost:5173'}/coming-soon"
+            href="${process.env.WEB_BASE_URL}/movies/${movieId}"
             style="display:inline-block;background:#facc15;color:#000;font-weight:700;padding:12px 28px;border-radius:24px;text-decoration:none;font-size:15px"
           >
-            Купити квиток
+            Buy ticket
           </a>
         </div>
         <div style="padding:16px 24px;border-top:1px solid #1f2937;text-align:center">
           <p style="color:#4b5563;font-size:12px;margin:0">
-            Ви отримали це повідомлення бо додали фільм до Wishlist
+            You received this message because you added the movie to your Wishlist
           </p>
         </div>
       </div>
