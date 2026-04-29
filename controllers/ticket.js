@@ -15,6 +15,8 @@ exports.getUserTickets = async (req, res) => {
     query.isUsed = false;
   } else if (status === 'used') {
     query.isUsed = true;
+  } else if (status === 'all') {
+    query.isUsed = { $in: [true, false] };
   }
 
   const [totalTickets, tickets] = await Promise.all([
