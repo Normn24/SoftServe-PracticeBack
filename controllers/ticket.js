@@ -6,20 +6,46 @@ const { generateTicketQR } = require('../services/qrService');
 
 exports.getUserTickets = async (req, res) => {
   const userId = req.user.id;
+  const { status } = req.query;
+  const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+  const limit = Math.max(1, parseInt(req.query.limit, 10) || 10);
+  const skip = (page - 1) * limit;
+  const query = { user: userId };
+  if (status === 'active') {
+    query.isUsed = false;
+  } else if (status === 'used') {
+    query.isUsed = true;
+  }
 
-  const tickets = await Ticket.find({ user: userId }).sort({ bookingDate: -1 });
+  const [totalTickets, tickets] = await Promise.all([
+    Ticket.countDocuments(query),
+    Ticket.find(query)
+      .sort({ bookingDate: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean(),
+  ]);
 
   if (tickets.length === 0) {
-    return res.status(200).json([]);
+    return res.status(200).json({
+      tickets: [],
+      pagination: {
+        totalTickets: 0,
+        totalPages: 0,
+        currentPage: page,
+      },
+    });
   }
 
   const movieIds = [...new Set(tickets.map((t) => t.movieInCinema))];
-  const movies = await MovieInCinema.find({ movieId: { $in: movieIds } });
+  const movies = await MovieInCinema.find({ movieId: { $in: movieIds } }).lean();
   const movieMap = new Map(movies.map((m) => [m.movieId, m]));
 
   const enriched = tickets.map((ticket) => {
     const movie = movieMap.get(ticket.movieInCinema);
-    const session = movie?.sessions?.id(ticket.session);
+    const session = movie?.sessions?.find(
+      (s) => s._id.toString() === ticket.session.toString()
+    );
 
     return {
       _id: ticket._id,
@@ -34,11 +60,18 @@ exports.getUserTickets = async (req, res) => {
     };
   });
 
-  res.status(200).json(enriched);
+  res.status(200).json({
+    tickets: enriched,
+    pagination: {
+      totalTickets,
+      totalPages: Math.ceil(totalTickets / limit),
+      currentPage: page,
+    },
+  });
 };
 
 exports.getTicketById = async (req, res) => {
-  const ticket = await Ticket.findById(req.params.ticketId);
+  const ticket = await Ticket.findById(req.params.ticketId).lean();
 
   if (!ticket) {
     const error = new Error(`Ticket with ID "${req.params.ticketId}" not found.`);
@@ -53,7 +86,7 @@ exports.deleteTicket = async (req, res) => {
   const { ticketId } = req.params;
   const userId = req.user.id;
 
-  const ticket = await Ticket.findById(ticketId);
+  const ticket = await Ticket.findById(ticketId).select('user').lean();
 
   if (!ticket) {
     const error = new Error(`Ticket with ID "${ticketId}" not found.`);
@@ -73,17 +106,21 @@ exports.deleteTicket = async (req, res) => {
 
 exports.sendTicketConfirmation = async (ticket, movieTitle, sessionDateTime) => {
   try {
-    const customer = await Customer.findById(ticket.user).select('email');
+    const customer = await Customer.findById(ticket.user).select('email').lean();
     if (!customer?.email) return;
 
     const qrDataUrl = await generateTicketQR(String(ticket._id));
 
-    await sendTicketEmail(customer.email, {
-      ticketId: String(ticket._id),
-      movieTitle,
-      sessionDateTime,
-      seatNumber: ticket.seatNumber,
-    }, qrDataUrl);
+    await sendTicketEmail(
+      customer.email,
+      {
+        ticketId: String(ticket._id),
+        movieTitle,
+        sessionDateTime,
+        seatNumber: ticket.seatNumber,
+      },
+      qrDataUrl
+    );
   } catch (err) {
     console.error('[sendTicketConfirmation] Failed to send email:', err.message);
   }

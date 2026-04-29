@@ -95,9 +95,9 @@ exports.loginCustomer = async (req, res) => {
   if (isMatch) {
     const payload = {
       id: customer.id,
-      firstName: customer.firstName,
-      lastName: customer.lastName,
-      isAdmin: customer.isAdmin
+      email: customer.email,
+      isAdmin: customer.isAdmin,
+      role: customer.role || "user"
     };
 
     const token = jwt.sign(payload, process.env.SECRET_OR_KEY, { expiresIn: 36000 });

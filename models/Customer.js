@@ -12,6 +12,7 @@ const CustomerSchema = new Schema(
     birthdate:  { type: String },
     avatarUrl:  { type: String },
     isAdmin:    { type: Boolean, required: true, default: false },
+    role:       { type: String, required: true, default: "user" },
     date:       { type: Date, default: Date.now },
     favorites:  [{ type: Number }],
     wishlist: [
