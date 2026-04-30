@@ -20,9 +20,27 @@ router.get(
 );
 
 router.get(
+  '/reviews/me/stats',
+  auth,
+  reviewsController.getUserReviewStats
+);
+
+router.get(
   '/reviews/check/:ticketId',
   auth,
   reviewsController.checkReviewExists
+);
+
+router.put(
+  '/reviews/:reviewId',
+  auth,
+  reviewsController.updateReview
+);
+
+router.delete(
+  '/reviews/:reviewId',
+  auth,
+  reviewsController.deleteReview
 );
 
 module.exports = router;
