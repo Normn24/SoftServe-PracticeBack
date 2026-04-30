@@ -1,5 +1,6 @@
 const { z } = require('zod');
 const Customer = require('../models/Customer');
+const MovieInCinema = require('../models/MovieInCinema');
 const {
   schedulePremiereNotification,
   cancelPremiereNotification,
@@ -18,7 +19,28 @@ exports.getWishlist = async (req, res) => {
     err.statusCode = 404;
     throw err;
   }
-  res.status(200).json(customer.wishlist);
+
+  const now = new Date();
+
+  // Збагачуємо кожен елемент вішліста полем hasSessions
+  const enriched = await Promise.all(
+    customer.wishlist.map(async (item) => {
+      const cinema = await MovieInCinema.findOne({
+        movieId: item.movieId,
+        'sessions.dateTime': { $gt: now },
+      }).lean();
+
+      return {
+        movieId:    item.movieId,
+        movieTitle: item.movieTitle,
+        releaseDate: item.releaseDate,
+        addedAt:    item.addedAt,
+        hasSessions: !!cinema,
+      };
+    })
+  );
+
+  res.status(200).json(enriched);
 };
 
 exports.addToWishlist = async (req, res) => {
